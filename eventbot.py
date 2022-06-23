@@ -1,4 +1,5 @@
 import requests
+import logging
 import time
 import config
 import sys
@@ -6,8 +7,7 @@ from discord_webhook import DiscordWebhook, DiscordEmbed
 
 # Use OpenSea API to retrieve events from startTime to endTime (in Unix epoch) for a single Contract Address
 def getEvents(startTime, endTime, contractAddress, eventType):
-    print(startTime)
-    url = f'https://api.opensea.io/api/v1/events?only_opensea=true&asset_contract_address={contractAddress}&event_type={eventType}&occurred_after={startTime}&occurred_before={endTime}'
+    url = f'https://api.opensea.io/api/v1/events?asset_contract_address={contractAddress}&event_type={eventType}&occurred_after={startTime}&occurred_before={endTime}'
 
     if config.api_key != "":
         headers = {
@@ -81,15 +81,18 @@ def run_bot_sync(eventType):
     end_time = time.time()
     start_time = end_time - int(config.update_interval)*60
     webhook = DiscordWebhook(url=config.webhook_url.get(eventType))
+
+    logging.info(f' StartTime: {start_time}')
+    logging.info(f'EndTime: {end_time}')
     
     for collection in config.collection_addresses:
         # Get Listings
-        print(f'Getting {eventType} events for {collection}')
+        logging.info(f'Getting {eventType} events for {collection}')
         currentEvents = getEvents(start_time, end_time, collection, eventType)
         if (currentEvents.status_code != 200):
-            print("Error with OpenSea request.")
-            print(currentEvents.status_code)
-            print(currentEvents.reason)
+            logging.warn("Error with OpenSea request.")
+            logging.warn(currentEvents.status_code)
+            logging.warn(currentEvents.reason)
             return
         currentEvents = currentEvents.json()
 
@@ -98,7 +101,7 @@ def run_bot_sync(eventType):
             # Skipping Bundles
             if (not event.get("asset")):
                 continue
-            print(f'Found {eventType} event for {getTitleFromEvent(event)}')
+            logging.info(f'Found {eventType} event for {getTitleFromEvent(event)}')
             embed = convertEventToEmbed(event, eventType)
             webhook.add_embed(embed)
             webhook.execute()
